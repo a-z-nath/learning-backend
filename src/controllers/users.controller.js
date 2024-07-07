@@ -212,7 +212,7 @@ const logOutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponseHandler(200, {}, "User logout successfully."));
 });
 
-const refreshAccessToken = asyncHandler(async (req, _) => {
+const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
 
   if(!incomingRefreshToken) {
@@ -253,8 +253,76 @@ const refreshAccessToken = asyncHandler(async (req, _) => {
   }
 })
 
-export { registerUser, 
+const changeCurrentPassword = asyncHandler( async (req, _)=> {
+  const {oldPassword, newPassword} = req.body;
+
+  const user = await User.findById(req.user?._id);
+
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+  if(!isPasswordCorrect) {
+    throw new ApiErrorHandler(400, "Invalid old password.");
+  }
+  user.password = newPassword;
+  await user.save({validateBeforeSave: false});
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponseHandler(
+        200,
+        {},
+        "Password is changed successfully."
+      )
+    );
+})
+
+const getCurrentUser = asyncHandler( async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponseHandler(
+      200,
+      {},
+      "Current user fetched."
+    ));
+});
+
+const updateAccountDetails = asyncHandler( (req, res) => {
+  const {fullName, email} = req.body;
+  
+  if(!fullName || !email) {
+    throw new ApiErrorHandler(
+      400, 
+      "All fields are required."
+    )
+  }
+
+  const user = User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        fullName,
+        email
+      }
+    },
+    {
+      new: true
+    }
+  ).select("-password -refreshToken");
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponseHandler(200, user, "Account details updated.")
+    )
+})
+
+export { 
+    registerUser, 
     logInUser, 
     logOutUser,
-    refreshAccessToken
+    refreshAccessToken,
+    changeCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails,
 };
